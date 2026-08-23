@@ -1,167 +1,270 @@
 import { useState } from "react";
 
 import PageContainer from "../../components/PageContainer";
-import { usePatients } from "../../hooks/patients/usePatients";
+
+import { PatientDetailsModal } from "../../components/patients/PatientsDetailsModal";
+import { PatientFormModal } from "../../components/patients/PatientFormModal";
+import { PatientsEmptyState } from "../../components/patients/PatientsEmptyStatus";
+import { PatientsPagination } from "../../components/patients/PatientsPagination";
+import { PatientsStats } from "../../components/patients/PatientsStatus";
+import { PatientsTable } from "../../components/patients/PatientsTable";
+import { PatientsToolbar } from "../../components/patients/PatientToolbar";
+
+import { usePatients } from "../../hooks/usePatients";
+
+import type {
+  PatientFormValues,
+  PatientTableRow,
+} from "../../types/patient-dashboard.type";
 
 export default function PatientsPage() {
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const patients =
+    usePatients();
 
-  const patientsQuery = usePatients({
-    search,
-    searchFields: [
-      "name",
-      "email",
-      "phone",
-      "taxNumber",
-    ],
-    sortBy: "createdAt",
-    sortDirection: "desc",
-    page,
-    pageSize: 5,
-  });
+  const [
+    selectedPatient,
+    setSelectedPatient,
+  ] =
+    useState<PatientTableRow | null>(
+      null,
+    );
+
+  const [
+    formOpen,
+    setFormOpen,
+  ] =
+    useState(false);
+
+  const [
+    detailsOpen,
+    setDetailsOpen,
+  ] =
+    useState(false);
+
+  function openCreate() {
+    setSelectedPatient(null);
+
+    setDetailsOpen(false);
+
+    setFormOpen(true);
+  }
+
+  function openView(
+    patient: PatientTableRow,
+  ) {
+    setSelectedPatient(patient);
+
+    setFormOpen(false);
+
+    setDetailsOpen(true);
+  }
+
+  function openEdit(
+    patient: PatientTableRow,
+  ) {
+    setSelectedPatient(patient);
+
+    setDetailsOpen(false);
+
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setSelectedPatient(null);
+
+    setFormOpen(false);
+  }
+
+  function closeDetails() {
+    setSelectedPatient(null);
+
+    setDetailsOpen(false);
+  }
+
+  async function handleSubmit(
+    values: PatientFormValues,
+  ) {
+    if (selectedPatient) {
+      await patients.updatePatient({
+        id: selectedPatient.id,
+        values,
+      });
+    } else {
+      await patients.createPatient(
+        values,
+      );
+    }
+
+    closeForm();
+  }
+
+  async function handleDelete(
+    patient: PatientTableRow,
+  ) {
+    const confirmed =
+      window.confirm(
+        `Tem a certeza que pretende eliminar ${patient.name}?`,
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await patients.deletePatient(
+      patient.id,
+    );
+  }
+
+  if (patients.isLoading) {
+    return (
+      <PageContainer
+        title="Pacientes"
+        description="Gestão de pacientes da clínica."
+      >
+        <PatientsPageSkeleton />
+      </PageContainer>
+    );
+  }
+
+  if (patients.isError) {
+    return (
+      <PageContainer
+        title="Pacientes"
+        description="Gestão de pacientes da clínica."
+      >
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+          <h2 className="font-semibold text-slate-900">
+            Não foi possível carregar os pacientes
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Ocorreu um problema ao consultar os dados.
+          </p>
+
+          <button
+            type="button"
+            onClick={
+              patients.refetch
+            }
+            className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer
       title="Pacientes"
-      description="Gestão dos pacientes registados."
+      description="Gestão completa dos pacientes da clínica."
     >
-      <div className="mb-5">
-        <label
-          htmlFor="patient-search"
-          className="sr-only"
-        >
-          Pesquisar pacientes
-        </label>
-
-        <input
-          id="patient-search"
-          type="search"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
-          }}
-          placeholder="Pesquisar por nome, email ou telefone..."
-          className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      <div className="space-y-6">
+        <PatientsStats
+          total={
+            patients.totalPatients
+          }
+          active={
+            patients.activePatients
+          }
+          inactive={
+            patients.inactivePatients
+          }
         />
+
+        <PatientsToolbar
+          search={patients.search}
+          status={patients.status}
+          onSearchChange={
+            patients.setSearch
+          }
+          onStatusChange={
+            patients.setStatus
+          }
+          onCreate={openCreate}
+        />
+
+        {patients.rows.length ===
+        0 ? (
+          <PatientsEmptyState
+            onCreate={openCreate}
+          />
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <PatientsTable
+              patients={
+                patients.rows
+              }
+              onView={openView}
+              onEdit={openEdit}
+              onDelete={
+                handleDelete
+              }
+              onSort={
+                patients.toggleSort
+              }
+            />
+
+            <PatientsPagination
+              page={patients.page}
+              totalPages={
+                patients.totalPages
+              }
+              totalItems={
+                patients.filteredCount
+              }
+              onPageChange={
+                patients.setPage
+              }
+            />
+          </div>
+        )}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {patientsQuery.isPending ? (
-          <div className="p-6 text-slate-500">
-            A carregar pacientes...
-          </div>
-        ) : null}
+      <PatientDetailsModal
+        open={detailsOpen}
+        patient={
+          selectedPatient?.patient
+        }
+        onClose={closeDetails}
+      />
 
-        {patientsQuery.isError ? (
-          <div className="p-6 text-red-600">
-            Não foi possível carregar os pacientes.
-          </div>
-        ) : null}
-
-        {patientsQuery.data ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-slate-200 bg-slate-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                      Paciente
-                    </th>
-
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                      Telefone
-                    </th>
-
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">
-                      Estado
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {patientsQuery.data.data.map(
-                    (patient) => (
-                      <tr key={patient.id}>
-                        <td className="px-5 py-4">
-                          <p className="font-medium text-slate-900">
-                            {patient.name}
-                          </p>
-
-                          <p className="text-sm text-slate-500">
-                            {patient.email}
-                          </p>
-                        </td>
-
-                        <td className="px-5 py-4 text-sm text-slate-600">
-                          {patient.phone}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            {patient.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <footer className="flex items-center justify-between border-t border-slate-200 px-5 py-4">
-              <p className="text-sm text-slate-500">
-                Página{" "}
-                {
-                  patientsQuery.data.pagination
-                    .page
-                }{" "}
-                de{" "}
-                {
-                  patientsQuery.data.pagination
-                    .totalPages
-                }
-              </p>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={
-                    !patientsQuery.data.pagination
-                      .hasPreviousPage
-                  }
-                  onClick={() =>
-                    setPage((currentPage) =>
-                      Math.max(1, currentPage - 1),
-                    )
-                  }
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40"
-                >
-                  Anterior
-                </button>
-
-                <button
-                  type="button"
-                  disabled={
-                    !patientsQuery.data.pagination
-                      .hasNextPage
-                  }
-                  onClick={() =>
-                    setPage(
-                      (currentPage) =>
-                        currentPage + 1,
-                    )
-                  }
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40"
-                >
-                  Seguinte
-                </button>
-              </div>
-            </footer>
-          </>
-        ) : null}
-      </div>
+      <PatientFormModal
+        open={formOpen}
+        patient={
+          selectedPatient?.patient
+        }
+        isSubmitting={
+          patients.isCreating ||
+          patients.isUpdating
+        }
+        onClose={closeForm}
+        onSubmit={
+          handleSubmit
+        }
+      />
     </PageContainer>
+  );
+}
+
+function PatientsPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        {Array.from({
+          length: 3,
+        }).map((_, index) => (
+          <div
+            key={index}
+            className="h-28 animate-pulse rounded-2xl bg-slate-100"
+          />
+        ))}
+      </div>
+
+      <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+
+      <div className="h-96 animate-pulse rounded-2xl bg-slate-100" />
+    </div>
   );
 }

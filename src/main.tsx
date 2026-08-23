@@ -5,20 +5,17 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import { queryClient } from "./providers/query-client";
-import { seedDatabase } from "./api";
+import { seedDatabase } from "./types";
 import { AuthProvider } from "./stores/auth.store";
 
 import "./index.css";
 
 seedDatabase();
 
-const rootElement =
-  document.getElementById("root");
+const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error(
-    'Elemento com id "root" não encontrado.',
-  );
+  throw new Error('Elemento com id "root" não encontrado.');
 }
 
 createRoot(rootElement).render(

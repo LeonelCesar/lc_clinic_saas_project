@@ -1,14 +1,11 @@
-import { databaseCollections } from "../config";
+import { databaseCollections } from "../../fake-api/database";
 import { ApiError } from "../core/api-error";
 import { simulateNetworkDelay } from "../core/delay";
 import { readCollection } from "../core/local-storage";
-import type {
-  PublicUser,
-  User,
-} from "../types/user.types";
+import type { User, PublicUser  } from "../../types/user.types";
 
-const AUTH_SESSION_KEY =
-  "lc-appointments-auth-session";
+
+const AUTH_SESSION_KEY = "lc-appointments-auth-session";
 
 export interface LoginCredentials {
   email: string;
@@ -27,31 +24,19 @@ function removePassword(user: User): PublicUser {
 }
 
 export const authService = {
-  async login(
-    credentials: LoginCredentials,
-  ): Promise<AuthSession> {
+  async login(credentials: LoginCredentials): Promise<AuthSession> {
     await simulateNetworkDelay();
-
-    const normalizedEmail = credentials.email
-      .trim()
-      .toLowerCase();
-
-    const users = readCollection<User>(
-      databaseCollections.users,
-    );
-
+    const normalizedEmail = credentials.email.trim().toLowerCase();
+    const users = readCollection<User>(databaseCollections.users);
     const user = users.find(
-      (currentUser) =>
-        currentUser.email.toLowerCase() ===
-        normalizedEmail,
+      (currentUser) => currentUser.email.toLowerCase() === normalizedEmail,
     );
 
     if (!user || user.password !== credentials.password) {
       throw new ApiError({
         code: "UNAUTHORIZED",
         status: 401,
-        message:
-          "Email ou palavra-passe inválidos.",
+        message: "Email ou palavra-passe inválidos.",
       });
     }
 
@@ -59,8 +44,7 @@ export const authService = {
       throw new ApiError({
         code: "FORBIDDEN",
         status: 403,
-        message:
-          "Este utilizador não está autorizado a entrar.",
+        message: "Este utilizador não está autorizado a entrar.",
       });
     }
 
@@ -69,10 +53,7 @@ export const authService = {
       authenticatedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem(
-      AUTH_SESSION_KEY,
-      JSON.stringify(session),
-    );
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
 
     return session;
   },
@@ -84,18 +65,14 @@ export const authService = {
   },
 
   getSession(): AuthSession | null {
-    const storedSession = localStorage.getItem(
-      AUTH_SESSION_KEY,
-    );
+    const storedSession = localStorage.getItem(AUTH_SESSION_KEY);
 
     if (!storedSession) {
       return null;
     }
 
     try {
-      return JSON.parse(
-        storedSession,
-      ) as AuthSession;
+      return JSON.parse(storedSession) as AuthSession;
     } catch {
       localStorage.removeItem(AUTH_SESSION_KEY);
       return null;

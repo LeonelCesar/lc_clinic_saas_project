@@ -1,4 +1,4 @@
-import { fakeApiConfig } from "../config";
+import { fakeApiConfig } from "../../types/config";
 import { ApiError } from "./api-error";
 
 function buildStorageKey(collection: string): string {

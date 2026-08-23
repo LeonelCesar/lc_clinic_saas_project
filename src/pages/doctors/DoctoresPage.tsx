@@ -3,7 +3,7 @@ import PageContainer from "../../components/PageContainer";
 export default function DoctorsPage() {
   return (
     <PageContainer
-      title="Médicos"
+      title="Médicos, Leonel Helder"
       description="Gestão dos médicos e respetivas especialidades."
       action={
         <button
