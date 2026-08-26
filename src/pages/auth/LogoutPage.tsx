@@ -22,7 +22,7 @@ export default function LogoutPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50">
-      <p className="text-sm text-slate-500">
+      <p className="text-base text-slate-700 font-bold">
         A terminar sessão...
       </p>
     </main>

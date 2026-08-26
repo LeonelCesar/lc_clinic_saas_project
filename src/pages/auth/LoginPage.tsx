@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const locationState = location.state as LocationState | null;
-
   const redirectPath = locationState?.from ?? paths.app.dashboard;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -103,11 +102,11 @@ export default function LoginPage() {
       >
         {isSubmitting ? "A entrar..." : "Entrar"}
       </button>
-
+      {/* 
       <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
         <p>Email: admin@clinic.pt</p>
         <p>Palavra-passe: 123456</p>
-      </div>
+      </div> */}
     </form>
   );
 }

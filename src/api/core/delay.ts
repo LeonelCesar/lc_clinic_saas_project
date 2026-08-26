@@ -1,4 +1,4 @@
-import { fakeApiConfig } from "../config";
+import { fakeApiConfig } from "../../types/config";
 
 function generateRandomDelay(): number {
   const { minimum, maximum } = fakeApiConfig.delay;
