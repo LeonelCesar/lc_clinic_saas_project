@@ -22,7 +22,7 @@ export function AppointmentStatusPanel({
           </p>
         ) : (
           metrics.map((metric) => (
-            <div key={metric.staus}>
+            <div key={metric.status}>
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="text-slate-600">{metric.label}</span>
 

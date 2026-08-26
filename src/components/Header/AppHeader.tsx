@@ -28,11 +28,13 @@ import type {
 interface AppHeaderProps {
   user: PublicUser | null;
   notificationsCount?: number;
+  onLogout: () => void;
 }
 
 export function AppHeader({
   user,
   notificationsCount = 0,
+   
 }: AppHeaderProps) {
   const navigate = useNavigate();
 

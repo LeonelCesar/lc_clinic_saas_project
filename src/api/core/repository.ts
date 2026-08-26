@@ -82,9 +82,12 @@ function valuesAreEqual(
 export class LocalStorageRepository<
   T extends BaseEntity,
 > {
-  constructor(
-    private readonly collectionName: string,
-  ) {}
+
+ private readonly collectionName: string;
+
+constructor(collectionName: string) {
+  this.collectionName = collectionName;
+}
 
   private read(): T[] {
     return readCollection<T>(this.collectionName);
