@@ -44,12 +44,7 @@ const patientsSeed: Patient[] = [
     taxNumber: "245678901",
     healthNumber: "123456789",
     status: "ACTIVE",
-    address: {
-      street: "Rua da Liberdade, 25",
-      city: "Lisboa",
-      postalCode: "1000-120",
-      country: "Portugal",
-    },
+
     createdAt: seedDate,
     updatedAt: seedDate,
   },
@@ -63,12 +58,7 @@ const patientsSeed: Patient[] = [
     taxNumber: "256789012",
     healthNumber: "987654321",
     status: "ACTIVE",
-    address: {
-      street: "Avenida Central, 84",
-      city: "Barreiro",
-      postalCode: "2830-200",
-      country: "Portugal",
-    },
+
     createdAt: seedDate,
     updatedAt: seedDate,
   },

@@ -7,7 +7,8 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { authService, type PublicUser } from "../types";
+import { authService } from "../api/auth/auth.service";
+import type { PublicUser } from "../types/user.types";
 
 interface LoginCredentials {
   email: string;

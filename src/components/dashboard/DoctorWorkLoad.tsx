@@ -26,7 +26,7 @@ export function DoctorWorkload({ doctors }: DoctorWorkloadProps) {
                 {doctor.doctorName}
               </p>
 
-              <p className="text-xs text-slate-500">{doctor.speciality}</p>
+              <p className="text-xs text-slate-500">{doctor.specialty}</p>
             </div>
 
             <div className="flex gap-6 text-right">

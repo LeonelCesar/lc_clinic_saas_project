@@ -4,7 +4,7 @@ import { readCollection } from "../api/core/local-storage";
 import type { Appointment } from "../types/appointment.type";
 import type { Doctor } from "../types/doctor.types";
 import type { Patient } from "../types/patient.types";
-import type { MedicalService } from "../services/medicalServices.service";
+import type { MedicalService } from "../types/services.types";
 
 import type {
   AppointmentStatusMetric,
@@ -13,9 +13,13 @@ import type {
   DashboardAppointmentStatus,
   DashboardData,
   DoctorWorkloadItem,
-} from "../types/appointment.type";
+} from "../types/dashboard.types";
 
-import { isFutureDate, isSameMonth, toDateKey } from "../utils/dashboard.utils";
+import {
+  isFutureDate,
+  isSameMonth,
+  toDateKey,
+} from "../utils/dashboard.utils";
 
 const STATUS_LABELS: Record<DashboardAppointmentStatus, string> = {
   SCHEDULED: "Agendadas",
@@ -43,9 +47,17 @@ function resolveAppointment(
   doctors: Doctor[],
   services: MedicalService[],
 ): DashboardAppointment {
-  const patient = patients.find((item) => item.id === appointment.patientId);
-  const doctor = doctors.find((item) => item.id === appointment.doctorId);
-  const service = services.find((item) => item.id === appointment.serviceId);
+  const patient = patients.find(
+    (item) => item.id === appointment.patientId,
+  );
+
+  const doctor = doctors.find(
+    (item) => item.id === appointment.doctorId,
+  );
+
+  const service = services.find(
+    (item) => item.id === appointment.serviceId,
+  );
 
   return {
     id: appointment.id,
@@ -55,7 +67,7 @@ function resolveAppointment(
     date: appointment.date,
     startTime: appointment.startTime,
     endTime: appointment.endTime,
-    status: appointment.status as DashboardAppointmentStatus,
+    status: appointment.status,
   };
 }
 
@@ -64,18 +76,23 @@ function calculateStatusMetrics(
 ): AppointmentStatusMetric[] {
   const total = appointments.length;
 
-  return STATUS_ORDER.map((status) => {
-    const count = appointments.filter(
-      (appointment) => appointment.status === status,
-    ).length;
+  return STATUS_ORDER
+    .map((status): AppointmentStatusMetric => {
+      const count = appointments.filter(
+        (appointment) => appointment.status === status,
+      ).length;
 
-    return {
-      status,
-      label: STATUS_LABELS[status],
-      count,
-      percentage: total === 0 ? 0 : Math.round((count / total) * 100),
-    };
-  }).filter((item) => item.count > 0);
+      return {
+        status,
+        label: STATUS_LABELS[status],
+        count,
+        percentage:
+          total === 0
+            ? 0
+            : Math.round((count / total) * 100),
+      };
+    })
+    .filter((item) => item.count > 0);
 }
 
 function calculateDoctorWorkload(
@@ -87,29 +104,40 @@ function calculateDoctorWorkload(
 
   return doctors
     .filter((doctor) => doctor.status === "ACTIVE")
-    .map((doctor) => {
-      const doctorAppointments = appointments.filter(
-        (appointment) => appointment.doctorId === doctor.id,
-      );
-
-      return {
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        specialty: doctor.specialty,
-
-        appointmentsToday: doctorAppointments.filter(
+    .map(
+      (doctor): DoctorWorkloadItem => {
+        const doctorAppointments = appointments.filter(
           (appointment) =>
-            appointment.date === todayKey && appointment.status !== "CANCELLED",
-        ).length,
+            appointment.doctorId === doctor.id,
+        );
 
-        appointmentsThisMonth: doctorAppointments.filter(
-          (appointment) =>
-            isSameMonth(appointment.date, today) &&
-            appointment.status !== "CANCELLED",
-        ).length,
-      };
-    })
-    .sort((a, b) => b.appointmentsToday - a.appointmentsToday);
+        const appointmentsToday =
+          doctorAppointments.filter(
+            (appointment) =>
+              appointment.date === todayKey &&
+              appointment.status !== "CANCELLED",
+          ).length;
+
+        const appointmentsThisMonth =
+          doctorAppointments.filter(
+            (appointment) =>
+              isSameMonth(appointment.date, today) &&
+              appointment.status !== "CANCELLED",
+          ).length;
+
+        return {
+          doctorId: doctor.id,
+          doctorName: doctor.name,
+          specialty: doctor.specialty,
+          appointmentsToday,
+          appointmentsThisMonth,
+        };
+      },
+    )
+    .sort(
+      (a, b) =>
+        b.appointmentsToday - a.appointmentsToday,
+    );
 }
 
 function createAlerts(
@@ -123,17 +151,15 @@ function createAlerts(
 
   const pendingToday = appointments.filter(
     (appointment) =>
-      appointment.date === todayKey && appointment.status === "SCHEDULED",
+      appointment.date === todayKey &&
+      appointment.status === "SCHEDULED",
   );
 
   if (pendingToday.length > 0) {
     alerts.push({
       id: "unconfirmed-today",
-
       title: "Marcações por confirmar",
-
       description: `${pendingToday.length} marcação(ões) de hoje ainda estão com estado agendado.`,
-
       severity: "WARNING",
     });
   }
@@ -155,7 +181,9 @@ function createAlerts(
   }
 
   const incompletePatients = patients.filter(
-    (patient) => !patient.taxNumber || !patient.healthNumber,
+    (patient) =>
+      !patient.taxNumber ||
+      !patient.healthNumber,
   );
 
   if (incompletePatients.length > 0) {
@@ -173,8 +201,14 @@ function createAlerts(
 export async function getDashboardData(
   today = new Date(),
 ): Promise<DashboardData> {
-  const patients = readCollection<Patient>(databaseCollections.patients);
-  const doctors = readCollection<Doctor>(databaseCollections.doctors);
+  const patients = readCollection<Patient>(
+    databaseCollections.patients,
+  );
+
+  const doctors = readCollection<Doctor>(
+    databaseCollections.doctors,
+  );
+
   const services = readCollection<MedicalService>(
     databaseCollections.medicalServices,
   );
@@ -186,79 +220,137 @@ export async function getDashboardData(
   const todayKey = toDateKey(today);
 
   const todayAppointments = appointments
-    .filter((appointment) => appointment.date === todayKey)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    .filter(
+      (appointment) =>
+        appointment.date === todayKey,
+    )
+    .sort((a, b) =>
+      a.startTime.localeCompare(b.startTime),
+    );
 
-  const monthlyAppointments = appointments.filter((appointment) =>
-    isSameMonth(appointment.date, today),
-  );
-
-  const validMonthlyAppointments = monthlyAppointments.filter(
+  const monthlyAppointments = appointments.filter(
     (appointment) =>
-      appointment.status !== "CANCELLED" && appointment.status !== "NO_SHOW",
+      isSameMonth(appointment.date, today),
   );
 
-  const monthlyExpectedRevenue = validMonthlyAppointments.reduce(
-    (total, appointment) => {
-      const service = services.find(
-        (item) => item.id === appointment.serviceId,
-      );
+  const validMonthlyAppointments =
+    monthlyAppointments.filter(
+      (appointment) =>
+        appointment.status !== "CANCELLED" &&
+        appointment.status !== "NO_SHOW",
+    );
 
-      return total + (service?.price ?? 0);
-    },
-    0,
-  );
+  const monthlyExpectedRevenue =
+    validMonthlyAppointments.reduce(
+      (total, appointment) => {
+        const service = services.find(
+          (item) =>
+            item.id === appointment.serviceId,
+        );
 
-  const cancelledAppointments = monthlyAppointments.filter(
-    (appointment) => appointment.status === "CANCELLED",
-  ).length;
+        return total + (service?.price ?? 0);
+      },
+      0,
+    );
+
+  const cancelledAppointments =
+    monthlyAppointments.filter(
+      (appointment) =>
+        appointment.status === "CANCELLED",
+    ).length;
 
   const cancellationRate =
     monthlyAppointments.length === 0
       ? 0
-      : Math.round((cancelledAppointments / monthlyAppointments.length) * 100);
+      : Math.round(
+          (cancelledAppointments /
+            monthlyAppointments.length) *
+            100,
+        );
 
   const upcomingAppointments = appointments
     .filter(
       (appointment) =>
-        isFutureDate(appointment.date, today) &&
+        isFutureDate(
+          appointment.date,
+          today,
+        ) &&
         appointment.status !== "CANCELLED",
     )
     .sort((a, b) => {
-      const dateComparison = a.date.localeCompare(b.date);
+      const dateComparison =
+        a.date.localeCompare(b.date);
 
       if (dateComparison !== 0) {
         return dateComparison;
       }
 
-      return a.startTime.localeCompare(b.startTime);
+      return a.startTime.localeCompare(
+        b.startTime,
+      );
     })
     .slice(0, 6);
 
   return {
     summary: {
-      appointmentsToday: todayAppointments.length,
+      appointmentsToday:
+        todayAppointments.length,
 
       totalPatients: patients.length,
 
-      activeDoctors: doctors.filter((doctor) => doctor.status === "ACTIVE")
-        .length,
+      activeDoctors: doctors.filter(
+        (doctor) =>
+          {
+            return doctor.status === "ACTIVE";
+          },
+      ).length,
 
-      monthlyAppointments: monthlyAppointments.length,
+      monthlyAppointments:
+        monthlyAppointments.length,
+
       monthlyExpectedRevenue,
+
       cancellationRate,
     },
 
-    todayAppointments: todayAppointments.map((appointment) =>
-      resolveAppointment(appointment, patients, doctors, services),
-    ),
+    todayAppointments:
+      todayAppointments.map(
+        (appointment) =>
+          resolveAppointment(
+            appointment,
+            patients,
+            doctors,
+            services,
+          ),
+      ),
 
-    upcomingAppointments: upcomingAppointments.map((appointment) =>
-      resolveAppointment(appointment, patients, doctors, services),
-    ),
+    upcomingAppointments:
+      upcomingAppointments.map(
+        (appointment) =>
+          resolveAppointment(
+            appointment,
+            patients,
+            doctors,
+            services,
+          ),
+      ),
 
-    statusMetrics: calculateStatusMetrics(monthlyAppointments),
-    doctorWorkload: calculateDoctorWorkload(doctors, appointments, today),
-    alerts: createAlerts(appointments, patients, today),
+    statusMetrics:
+      calculateStatusMetrics(
+        monthlyAppointments,
+      ),
+
+    doctorWorkload:
+      calculateDoctorWorkload(
+        doctors,
+        appointments,
+        today,
+      ),
+
+    alerts: createAlerts(
+      appointments,
+      patients,
+      today,
+    ),
   };
 }

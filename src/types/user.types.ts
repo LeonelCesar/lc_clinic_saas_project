@@ -12,3 +12,5 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+
+export type PublicUser = Omit<User, "password">;

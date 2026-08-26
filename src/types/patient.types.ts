@@ -1,11 +1,6 @@
-export type PatientGender =
-  | "MALE"
-  | "FEMALE"
-  | "OTHER";
+export type PatientGender = "MALE" | "FEMALE" | "OTHER";
 
-export type PatientStatus =
-  | "ACTIVE"
-  | "INACTIVE";
+export type PatientStatus = "ACTIVE" | "INACTIVE";
 
 export interface PatientAddress {
   street: string;
@@ -14,9 +9,13 @@ export interface PatientAddress {
   country: string;
 }
 
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
 export interface Patient {
-  emergencyContact: any;
-  identificationNumber: ReactNode;
   id: string;
   name: string;
   email: string;
@@ -25,8 +24,10 @@ export interface Patient {
   gender: PatientGender;
   taxNumber?: string;
   healthNumber?: string;
-  status: PatientStatus;
+  identificationNumber?: string;
   address?: PatientAddress;
-  createdAt?: string;
-  updatedAt?: string;
+  emergencyContact?: EmergencyContact;
+  status: PatientStatus;
+  createdAt: string;
+  updatedAt: string;
 }
