@@ -1,10 +1,10 @@
 export type DoctorStatus = "ACTIVE" | "INACTIVE";
 
 export interface DoctorSchedule {
-  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  dayOfWeek: number;
   startTime: string;
   endTime: string;
-}
+}[]
 
 export interface Doctor {
   id: string;
