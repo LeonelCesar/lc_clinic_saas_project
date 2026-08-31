@@ -18,101 +18,63 @@ import type {
 } from "../../types/patient-dashboard.type";
 
 export default function PatientsPage() {
-  const patients =
-    usePatients();
-
-  const [
-    selectedPatient,
-    setSelectedPatient,
-  ] =
-    useState<PatientTableRow | null>(
-      null,
-    );
-
-  const [
-    formOpen,
-    setFormOpen,
-  ] =
-    useState(false);
-
-  const [
-    detailsOpen,
-    setDetailsOpen,
-  ] =
-    useState(false);
+  const patients = usePatients();
+  const [selectedPatient, setSelectedPatient] =
+    useState<PatientTableRow | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   function openCreate() {
     setSelectedPatient(null);
-
     setDetailsOpen(false);
-
     setFormOpen(true);
   }
 
-  function openView(
-    patient: PatientTableRow,
-  ) {
+  function openView(patient: PatientTableRow) {
     setSelectedPatient(patient);
-
     setFormOpen(false);
-
     setDetailsOpen(true);
   }
 
-  function openEdit(
-    patient: PatientTableRow,
-  ) {
+  function openEdit(patient: PatientTableRow) {
     setSelectedPatient(patient);
-
     setDetailsOpen(false);
-
     setFormOpen(true);
   }
 
   function closeForm() {
     setSelectedPatient(null);
-
     setFormOpen(false);
   }
 
   function closeDetails() {
     setSelectedPatient(null);
-
     setDetailsOpen(false);
   }
 
-  async function handleSubmit(
-    values: PatientFormValues,
-  ) {
+  async function handleSubmit(values: PatientFormValues) {
     if (selectedPatient) {
       await patients.updatePatient({
         id: selectedPatient.id,
         values,
       });
     } else {
-      await patients.createPatient(
-        values,
-      );
+      await patients.createPatient(values);
     }
 
     closeForm();
   }
 
-  async function handleDelete(
-    patient: PatientTableRow,
-  ) {
-    const confirmed =
-      window.confirm(
-        `Tem a certeza que pretende eliminar ${patient.name}?`,
-      );
+  async function handleDelete(patient: PatientTableRow) {
+    const confirmed = window.confirm(
+      `Tem a certeza que pretende eliminar ${patient.name}?`,
+    );
 
     if (!confirmed) {
       return;
     }
 
-    await patients.deletePatient(
-      patient.id,
-    );
+    await patients.deletePatient(patient.id);
   }
 
   if (patients.isLoading) {
@@ -143,9 +105,7 @@ export default function PatientsPage() {
 
           <button
             type="button"
-            onClick={
-              patients.refetch
-            }
+            onClick={patients.refetch}
             className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             Tentar novamente
@@ -161,62 +121,33 @@ export default function PatientsPage() {
       description="Gestão completa dos pacientes da clínica."
     >
       <div className="space-y-6">
-        <PatientsStats
-          total={
-            patients.totalPatients
-          }
-          active={
-            patients.activePatients
-          }
-          inactive={
-            patients.inactivePatients
-          }
-        />
+        <PatientsStats patients={patients.patients} />
 
         <PatientsToolbar
           search={patients.search}
           status={patients.status}
-          onSearchChange={
-            patients.setSearch
-          }
-          onStatusChange={
-            patients.setStatus
-          }
+          onSearchChange={patients.setSearch}
+          onStatusChange={patients.setStatus}
           onCreate={openCreate}
         />
 
-        {patients.rows.length ===
-        0 ? (
-          <PatientsEmptyState
-            onCreate={openCreate}
-          />
+        {patients.rows.length === 0 ? (
+          <PatientsEmptyState onCreate={openCreate} />
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <PatientsTable
-              patients={
-                patients.rows
-              }
+              patients={patients.rows}
               onView={openView}
               onEdit={openEdit}
-              onDelete={
-                handleDelete
-              }
-              onSort={
-                patients.toggleSort
-              }
+              onDelete={handleDelete}
+              onSort={patients.toggleSort}
             />
 
             <PatientsPagination
               page={patients.page}
-              totalPages={
-                patients.totalPages
-              }
-              totalItems={
-                patients.filteredCount
-              }
-              onPageChange={
-                patients.setPage
-              }
+              totalPages={patients.totalPages}
+              totalItems={patients.filteredCount}
+              onPageChange={patients.setPage}
             />
           </div>
         )}
@@ -224,25 +155,16 @@ export default function PatientsPage() {
 
       <PatientDetailsModal
         open={detailsOpen}
-        patient={
-          selectedPatient?.patient
-        }
+        patient={selectedPatient?.patient}
         onClose={closeDetails}
       />
 
       <PatientFormModal
         open={formOpen}
-        patient={
-          selectedPatient?.patient
-        }
-        isSubmitting={
-          patients.isCreating ||
-          patients.isUpdating
-        }
+        patient={selectedPatient?.patient}
+        isSubmitting={patients.isCreating || patients.isUpdating}
         onClose={closeForm}
-        onSubmit={
-          handleSubmit
-        }
+        onSubmit={handleSubmit}
       />
     </PageContainer>
   );

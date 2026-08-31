@@ -24,6 +24,7 @@
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.81.0",
     "react-router-dom": "^7.18.2",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2",
     "zod": "^4.4.3",

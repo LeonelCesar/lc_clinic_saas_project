@@ -536,6 +536,8 @@ export function usePatients() {
    */
 
   return {
+
+      patients,
     /*
      * Data
      */
