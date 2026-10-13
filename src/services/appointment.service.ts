@@ -1,5 +1,6 @@
 import { databaseCollections } from "../types/config";
 import { ApiError } from "../api/core/api-error";
+
 import type {
   CreateEntityInput,
   UpdateEntityInput,
@@ -8,108 +9,133 @@ import type {
 import { readCollection } from "../api/core/local-storage";
 import type { PaginatedResult, QueryOptions } from "../api/core/query.types";
 import { LocalStorageRepository } from "../api/core/repository";
-import type { Appointment } from "../types/appointment.type";
+import type { Appointment, AppointmentStatus } from "../types/appointment.type";
 import type { Doctor } from "../types/doctor.types";
 import type { Patient } from "../types/patient.types";
 import type { MedicalService } from "../types/services.types";
-const appointmentsRepository = new LocalStorageRepository<Appointment>(
+
+const repository = new LocalStorageRepository<Appointment>(
   databaseCollections.appointments,
 );
 
+function validationError(message: string): never {
+  throw new ApiError({
+    code: "VALIDATION_ERROR",
+    status: 400,
+    message,
+  });
+}
+
+const statusTransitions: Record<AppointmentStatus, AppointmentStatus[]> = {
+  SCHEDULED: ["CONFIRMED", "CANCELLED", "NO_SHOW", "RESCHEDULED"],
+  CONFIRMED: ["IN_PROGRESS", "CANCELLED", "NO_SHOW", "RESCHEDULED"],
+  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [],
+  CANCELLED: [],
+  NO_SHOW: [],
+  RESCHEDULED: ["CONFIRMED", "CANCELLED", "NO_SHOW"],
+};
+
 function validateRelationships(
-  input: CreateEntityInput<Appointment> | UpdateEntityInput<Appointment>,
-): void {
-  if (input.patientId) {
-    const patients = readCollection<Patient>(databaseCollections.patients);
-
-    const patientExists = patients.some(
-      (patient) => patient.id === input.patientId,
-    );
-
-    if (!patientExists) {
-      throw new ApiError({
-        code: "VALIDATION_ERROR",
-        status: 400,
-        message: "O paciente informado não existe.",
-      });
-    }
-  }
-
-  if (input.doctorId) {
-    const doctors = readCollection<Doctor>(databaseCollections.doctors);
-
-    const doctorExists = doctors.some((doctor) => doctor.id === input.doctorId);
-
-    if (!doctorExists) {
-      throw new ApiError({
-        code: "VALIDATION_ERROR",
-        status: 400,
-        message: "O médico informado não existe.",
-      });
-    }
-  }
-
-  if (input.serviceId) {
-    const services = readCollection<MedicalService>(
-      databaseCollections.medicalServices,
-    );
-
-    const serviceExists = services.some(
-      (service) => service.id === input.serviceId,
-    );
-
-    if (!serviceExists) {
-      throw new ApiError({
-        code: "VALIDATION_ERROR",
-        status: 400,
-        message: "O serviço informado não existe.",
-      });
-    }
-  }
-}
-
-function validateAppointmentTime(
-  input: CreateEntityInput<Appointment> | UpdateEntityInput<Appointment>,
-): void {
-  if (input.startTime && input.endTime && input.startTime >= input.endTime) {
-    throw new ApiError({
-      code: "VALIDATION_ERROR",
-      status: 400,
-      message: "A hora final deve ser posterior à hora inicial.",
-    });
-  }
-}
-
-function validateDoctorAvailability(
-  input: CreateEntityInput<Appointment>,
-): void {
-  const appointments = readCollection<Appointment>(
-    databaseCollections.appointments,
+  appointment: Pick<Appointment, "patientId" | "doctorId" | "serviceId">,
+) {
+  const patients = readCollection<Patient>(databaseCollections.patients);
+  const doctors = readCollection<Doctor>(databaseCollections.doctors);
+  const services = readCollection<MedicalService>(
+    databaseCollections.medicalServices,
   );
 
-  const conflictingAppointment = appointments.find((appointment) => {
-    const sameDoctor = appointment.doctorId === input.doctorId;
+  if (!patients.some((p) => p.id === appointment.patientId)) {
+    validationError("O paciente selecionado não existe.");
+  }
 
-    const sameDate = appointment.date === input.date;
+  if (!doctors.some((d) => d.id === appointment.doctorId)) {
+    validationError("O médico selecionado não existe.");
+  }
 
-    const activeAppointment = appointment.status !== "CANCELLED";
+  if (!services.some((s) => s.id === appointment.serviceId)) {
+    validationError("O serviço selecionado não existe.");
+  }
+}
 
-    const hasTimeConflict =
-      input.startTime < appointment.endTime &&
-      input.endTime > appointment.startTime;
+function validateAppointment(
+  appointment: Pick<
+    Appointment,
+    | "patientId"
+    | "doctorId"
+    | "serviceId"
+    | "date"
+    | "startTime"
+    | "endTime"
+    | "status"
+  >,
+  excludeId?: string,
+) {
+  validateRelationships(appointment);
 
-    return sameDoctor && sameDate && activeAppointment && hasTimeConflict;
-  });
+  if (!appointment.date || !/^\d{4}-\d{2}-\d{2}$/.test(appointment.date)) {
+    validationError("Indica uma data válida.");
+  }
 
-  if (conflictingAppointment) {
-    throw new ApiError({
-      code: "VALIDATION_ERROR",
-      status: 409,
-      message: "O médico já possui uma marcação nesse horário.",
-      details: {
-        conflictingAppointmentId: conflictingAppointment.id,
-      },
+  const parsedDate = new Date(`${appointment.date}T00:00:00`);
+
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.getFullYear() !== Number(appointment.date.slice(0, 4)) ||
+    parsedDate.getMonth() + 1 !== Number(appointment.date.slice(5, 7)) ||
+    parsedDate.getDate() !== Number(appointment.date.slice(8, 10))
+  ) {
+    validationError("A data da marcação é inválida.");
+  }
+
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  if (
+    !timePattern.test(appointment.startTime) ||
+    !timePattern.test(appointment.endTime)
+  ) {
+    validationError("O horário deve estar no formato HH:mm.");
+  }
+
+  if (appointment.startTime >= appointment.endTime) {
+    validationError("A hora final deve ser posterior à hora inicial.");
+  }
+
+  if (!["CANCELLED", "NO_SHOW", "COMPLETED"].includes(appointment.status)) {
+    const appointments = readCollection<Appointment>(
+      databaseCollections.appointments,
+    );
+
+    const conflict = appointments.find((existing) => {
+      if (existing.id === excludeId) return false;
+
+      if (
+        existing.doctorId !== appointment.doctorId ||
+        existing.date !== appointment.date
+      ) {
+        return false;
+      }
+
+      if (["CANCELLED", "NO_SHOW", "COMPLETED"].includes(existing.status)) {
+        return false;
+      }
+
+      return (
+        appointment.startTime < existing.endTime &&
+        appointment.endTime > existing.startTime
+      );
     });
+
+    if (conflict) {
+      throw new ApiError({
+        code: "VALIDATION_ERROR",
+        status: 409,
+        message: "O médico já possui uma marcação neste horário.",
+        details: {
+          conflictingAppointmentId: conflict.id,
+        },
+      });
+    }
   }
 }
 
@@ -117,36 +143,55 @@ export const appointmentsService = {
   getAll(
     options?: QueryOptions<Appointment>,
   ): Promise<PaginatedResult<Appointment>> {
-    return appointmentsRepository.getAll(options);
+    return repository.getAll(options);
   },
 
   getById(id: string): Promise<Appointment> {
-    return appointmentsRepository.getById(id);
+    return repository.getById(id);
   },
 
   async create(input: CreateEntityInput<Appointment>): Promise<Appointment> {
-    validateRelationships(input);
-    validateAppointmentTime(input);
-    validateDoctorAvailability(input);
+    validateAppointment(input);
 
-    return appointmentsRepository.create(input);
+    return repository.create(input);
   },
 
   async update(
     id: string,
     input: UpdateEntityInput<Appointment>,
   ): Promise<Appointment> {
-    validateRelationships(input);
-    validateAppointmentTime(input);
+    const existing = await repository.getById(id);
 
-    return appointmentsRepository.update(id, input);
+    const next: Appointment = {
+      ...existing,
+      ...input,
+      id: existing.id,
+    };
+
+    if (
+      input.status !== undefined &&
+      input.status !== existing.status &&
+      !statusTransitions[existing.status].includes(input.status)
+    ) {
+      validationError(
+        `Não é possível mudar o estado de ${existing.status} para ${input.status}.`,
+      );
+    }
+
+    if (["COMPLETED", "CANCELLED", "NO_SHOW"].includes(existing.status)) {
+      validationError("Não é possível alterar uma marcação finalizada.");
+    }
+
+    validateAppointment(next, id);
+
+    return repository.update(id, input);
   },
 
   remove(id: string): Promise<void> {
-    return appointmentsRepository.remove(id);
+    return repository.remove(id);
   },
 
   count(): Promise<number> {
-    return appointmentsRepository.count();
+    return repository.count();
   },
 };
